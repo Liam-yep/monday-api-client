@@ -16,6 +16,9 @@ export class MondayClient {
     private token: string;
 
     constructor(options: MondayClientOptions) {
+        if (!options.token) {
+            throw new Error('Monday API Token is required');
+        }
         this.token = options.token;
         this.client = initMondayClient();
         this.client.setToken(this.token);
