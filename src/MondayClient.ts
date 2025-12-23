@@ -77,4 +77,66 @@ export class MondayClient {
 
         throw new Error('Unexpected unreachable code in MondayClient.api');
     }
+
+    /**
+     * Fetch all items from a board, handling pagination automatically.
+     * Uses API 2023-10 version (items_page).
+     * @param boardId The ID of the board to fetch items from
+     * @param returnFields GraphQL fields to return for each item (default: 'id name')
+     */
+    public async getAllItems(boardId: number | string, returnFields: string = 'id name'): Promise<any[]> {
+        let allItems: any[] = [];
+        let cursor: string | null = null;
+
+        // Initial query
+        const initialQuery = `
+            query ($boardId: [ID!]) {
+                boards (ids: $boardId) {
+                    items_page (limit: 500) {
+                        cursor
+                        items {
+                            ${returnFields}
+                        }
+                    }
+                }
+            }
+        `;
+
+        const initialResponse = await this.api(initialQuery, { boardId });
+
+        // Handle case where board doesn't exist or has no items_page
+        if (!initialResponse.boards || initialResponse.boards.length === 0) {
+            return [];
+        }
+
+        const itemsPage = initialResponse.boards[0].items_page;
+        if (!itemsPage) {
+            return [];
+        }
+
+        allItems.push(...itemsPage.items);
+        cursor = itemsPage.cursor;
+
+        // Loop for next pages
+        while (cursor) {
+            const nextQuery = `
+                query ($cursor: String!) {
+                    next_items_page (limit: 500, cursor: $cursor) {
+                        cursor
+                        items {
+                            ${returnFields}
+                        }
+                    }
+                }
+            `;
+
+            const nextResponse = await this.api(nextQuery, { cursor });
+            const nextItemsPage = nextResponse.next_items_page;
+
+            allItems.push(...nextItemsPage.items);
+            cursor = nextItemsPage.cursor;
+        }
+
+        return allItems;
+    }
 }
