@@ -1,4 +1,4 @@
-import initMondayClient from 'monday-sdk-js';
+import initMondayClient from "monday-sdk-js";
 import { MondayError } from './utils/MondayError';
 
 interface MondayClientOptions {
@@ -85,9 +85,27 @@ export class MondayClient {
      * Fetch all items from a board, handling pagination automatically.
      * Uses API 2023-10 version (items_page).
      * @param boardId The ID of the board to fetch items from
-     * @param returnFields GraphQL fields to return for each item (default: 'id name')
+     * @param options 
+     *  - string: GraphQL fields to return (e.g. 'id name')
+     *  - string[]: List of column IDs to fetch values for (returns 'id name' + these columns)
+     *  - true: Fetch all column values (returns 'id name column_values { id text value }')
      */
-    public async getAllItems(boardId: number | string, returnFields: string = 'id name'): Promise<any[]> {
+    public async getAllItems(boardId: number | string, options: string | string[] | boolean = 'id name'): Promise<any[]> {
+        let returnFields: string;
+
+        if (typeof options === 'string') {
+            returnFields = options;
+        } else if (Array.isArray(options)) {
+            const columnsPart = options.length > 0
+                ? `column_values(ids: [${options.map(id => `"${id}"`).join(', ')}]) { id text value }`
+                : '';
+            returnFields = `id name ${columnsPart}`;
+        } else if (options === true) {
+            returnFields = 'id name column_values { id text value }';
+        } else {
+            // Fallback (though types shouldn't allow this if strict)
+            returnFields = 'id name';
+        }
         let allItems: any[] = [];
         let cursor: string | null = null;
 
